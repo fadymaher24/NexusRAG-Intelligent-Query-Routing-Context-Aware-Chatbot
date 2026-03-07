@@ -16,6 +16,7 @@ from app.strategies import (
 from app.config import config
 from app.utils.logger import logger
 from app.utils.tracing import trace_operation, log_with_trace
+from app.utils.tracing import trace_operation, log_with_trace
 
 
 class ChatbotService:
@@ -95,7 +96,10 @@ class ChatbotService:
         Returns:
             QueryResponse object with results
         """
-        if _with_trace("info", f"Processing query: {query}")
+        if not self._initialized:
+            self.setup()
+        
+        log_with_trace("info", "Processing query", query_length=len(query))
         
         try:
             with trace_operation("process_query", query_length=len(query)):
@@ -151,10 +155,7 @@ class ChatbotService:
                 )
             
         except Exception as e:
-            log_with_trace("error", f"Error processing query: {e}")
-            )
-            
-        except Exception as e:
+            log_with_trace("error", "Error processing query", error=str(e))
             logger.error(f"Error processing query: {e}", exc_info=True)
             return QueryResponse(
                 success=False,

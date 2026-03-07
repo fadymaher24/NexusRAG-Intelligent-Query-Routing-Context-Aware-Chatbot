@@ -5,19 +5,27 @@ Run this script once to populate the database.
 
 import joblib
 import weaviate
+import time
+import sys
 from weaviate.classes.config import Configure, Property, DataType
 from pathlib import Path
 from tqdm import tqdm
+
+# Add parent directory to path for imports when running as script
+if __name__ == "__main__":
+    sys.path.insert(0, str(Path(__file__).parent))
 
 
 def load_products_to_weaviate():
     """Load products from joblib file into Weaviate."""
     
-    print("Connecting to Weaviate...")
+    print("⚙️  Connecting to Weaviate...")
+    start_conn = time.time()
     client = weaviate.connect_to_local(
         port=8079,
         grpc_port=50050
     )
+    print(f"✅ Connected in {time.time() - start_conn:.2f}s")
     
     try:
         # Check if products collection exists
@@ -51,17 +59,24 @@ def load_products_to_weaviate():
         
         # Load products data
         data_path = Path(__file__).parent / "dataset" / "clothes_json.joblib"
-        print(f"Loading products from {data_path}...")
+        print(f"📂 Loading products from {data_path.name}...")
+        load_start = time.time()
         products_data = joblib.load(data_path)
+        load_time = time.time() - load_start
         
-        print(f"Found {len(products_data)} products")
+        print(f"✅ Loaded {len(products_data):,} products in {load_time:.2f}s")
         
         # Import products with embeddings
         collection = client.collections.get("products")
         
-        print("Importing products...")
+        print("📥 Importing products to Weaviate...")
         batch_size = 100
-        for i in tqdm(range(0, len(products_data), batch_size)):
+        import_start = time.time()
+        
+        for i in tqdm(range(0, len(products_data), batch_size),
+                     desc="Importing",
+                     unit="batch",
+                     bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
             batch = products_data[i:i + batch_size]
             
             with collection.batch.dynamic() as batch_import:
@@ -93,7 +108,9 @@ def load_products_to_weaviate():
                     else:
                         batch_import.add_object(properties=properties)
         
-        print(f"✅ Successfully imported {len(products_data)} products!")
+        import_time = time.time() - import_start
+        rate = len(products_data) / import_time if import_time > 0 else 0
+        print(f"\n✅ Successfully imported {len(products_data):,} products in {import_time:.2f}s ({rate:.0f} items/s)")
         
         # Verify
         result = collection.aggregate.over_all(total_count=True)
@@ -107,11 +124,13 @@ def load_products_to_weaviate():
 def load_faqs_to_weaviate():
     """Load FAQs from joblib file into Weaviate."""
     
-    print("\nConnecting to Weaviate...")
+    print("\n⚙️  Connecting to Weaviate...")
+    start_conn = time.time()
     client = weaviate.connect_to_local(
         port=8079,
         grpc_port=50050
     )
+    print(f"✅ Connected in {time.time() - start_conn:.2f}s")
     
     try:
         # Check if FAQs collection exists
@@ -136,17 +155,24 @@ def load_faqs_to_weaviate():
         
         # Load FAQs data
         data_path = Path(__file__).parent / "dataset" / "faq.joblib"
-        print(f"Loading FAQs from {data_path}...")
+        print(f"📂 Loading FAQs from {data_path.name}...")
+        load_start = time.time()
         faqs_data = joblib.load(data_path)
+        load_time = time.time() - load_start
         
-        print(f"Found {len(faqs_data)} FAQs")
+        print(f"✅ Loaded {len(faqs_data)} FAQs in {load_time:.2f}s")
         
         # Import FAQs with embeddings
         collection = client.collections.get("faqs")
         
-        print("Importing FAQs...")
+        print("📥 Importing FAQs to Weaviate...")
+        import_start = time.time()
+        
         with collection.batch.dynamic() as batch_import:
-            for item in tqdm(faqs_data):
+            for item in tqdm(faqs_data,
+                           desc="Importing",
+                           unit="item",
+                           bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
                 # Extract vector if exists
                 vector = item.pop('vector', None) if isinstance(item, dict) else None
                 
@@ -165,7 +191,8 @@ def load_faqs_to_weaviate():
                 else:
                     batch_import.add_object(properties=properties)
         
-        print(f"✅ Successfully imported {len(faqs_data)} FAQs!")
+        import_time = time.time() - import_start
+        print(f"\n✅ Successfully imported {len(faqs_data)} FAQs in {import_time:.2f}s")
         
         # Verify
         result = collection.aggregate.over_all(total_count=True)
@@ -177,16 +204,37 @@ def load_faqs_to_weaviate():
 
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("NexusRAG Data Loader")
-    print("=" * 60)
+    print("=" * 70)
+    print("🚀 NexusRAG Data Loader")
+    print("=" * 70)
+    print()
+    
+    overall_start = time.time()
     
     try:
         load_products_to_weaviate()
         load_faqs_to_weaviate()
-        print("\n✅ Data loading completed successfully!")
-        print("\nYou can now start the Flask app with: python main.py")
+        
+        total_time = time.time() - overall_start
+        
+        print()
+        print("=" * 70)
+        print(f"✅ Data loading completed successfully in {total_time:.2f}s!")
+        print("=" * 70)
+        print()
+        print("ℹ️  Next steps:")
+        print("  1. Verify Weaviate is running: docker-compose ps")
+        print("  2. Start the Flask app: python main.py")
+        print("  3. Test the API: curl -X POST http://localhost:5001/api/query \\")
+        print('                        -H "Content-Type: application/json" \\')
+        print('                        -d \'{"query": "return policy"}\'')
+        print()
+        
+    except KeyboardInterrupt:
+        print()
+        print("⚠️  Data loading interrupted by user")
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print()
+        print(f"❌ Error: {e}")
         import traceback
         traceback.print_exc()

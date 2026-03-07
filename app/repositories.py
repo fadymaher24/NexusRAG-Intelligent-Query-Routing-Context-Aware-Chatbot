@@ -24,28 +24,47 @@ class BaseRepository(ABC):
 
 
 class FAQRepository(BaseRepository):
-    """Repository for FAQ data access."""
+    """Repository for FAQ data access via Weaviate."""
     
-    def __init__(self, data_path: Optional[str] = None):
+    def __init__(self, weaviate_client: Optional[weaviate.WeaviateClient] = None):
         """Initialize FAQ repository.
         
         Args:
-            data_path: Path to FAQ data file. If None, uses config default.
+            weaviate_client: Weaviate client instance. If None, creates new connection.
         """
-        self._data_path = data_path or str(config.DATA_DIR / "faq.joblib")
-        self._faqs: Optional[List[FAQ]] = None
-        logger.info(f"Initializing FAQRepository with data path: {self._data_path}")
+        self._client = weaviate_client
+        self._collection = None
+        logger.info("Initializing FAQRepository")
     
-    def load_data(self):
-        """Load FAQ data from file."""
+    def connect(self):
+        """Connect to Weaviate and get FAQs collection."""
+        if self._client is None:
+            try:
+                logger.info(f"Connecting to Weaviate at {config.WEAVIATE_HOST}:{config.WEAVIATE_PORT}")
+                self._client = weaviate.connect_to_local(
+                    port=config.WEAVIATE_PORT,
+                    grpc_port=config.WEAVIATE_GRPC_PORT
+                )
+                logger.info("Connected to Weaviate successfully")
+            except Exception as e:
+                logger.error(f"Failed to connect to Weaviate: {e}", exc_info=True)
+                raise
+        
         try:
-            logger.info("Loading FAQ data...")
-            raw_data = joblib.load(self._data_path)
-            self._faqs = [FAQ.from_dict(item) for item in raw_data]
-            logger.info(f"Loaded {len(self._faqs)} FAQs")
+            self._collection = self._client.collections.get('faqs')
+            logger.info("FAQs collection retrieved successfully")
         except Exception as e:
-            logger.error(f"Failed to load FAQ data: {e}", exc_info=True)
-            self._faqs = []
+            logger.error(f"Failed to get FAQs collection: {e}", exc_info=True)
+            raise
+    
+    def disconnect(self):
+        """Disconnect from Weaviate."""
+        if self._client:
+            try:
+                self._client.close()
+                logger.info("Disconnected from Weaviate")
+            except Exception as e:
+                logger.error(f"Error disconnecting from Weaviate: {e}", exc_info=True)
     
     def get_all(self) -> List[FAQ]:
         """Get all FAQs.
@@ -53,9 +72,19 @@ class FAQRepository(BaseRepository):
         Returns:
             List of FAQ objects
         """
-        if self._faqs is None:
-            self.load_data()
-        return self._faqs or []
+        if self._collection is None:
+            self.connect()
+        
+        assert self._collection is not None, "Collection not initialized"
+        
+        try:
+            results = self._collection.query.fetch_objects(limit=1000)
+            faqs = [FAQ.from_dict(dict(obj.properties)) for obj in results.objects]
+            logger.info(f"Retrieved {len(faqs)} FAQs")
+            return faqs
+        except Exception as e:
+            logger.error(f"Failed to get all FAQs: {e}", exc_info=True)
+            return []
     
     def get_faq_layout(self) -> str:
         """Generate FAQ layout string for LLM context.
@@ -66,25 +95,35 @@ class FAQRepository(BaseRepository):
         faqs = self.get_all()
         return "\n".join([faq.to_string() for faq in faqs])
     
-    def search(self, query: str) -> List[FAQ]:
-        """Search FAQs by query (simple text matching).
+    def search(self, query: str, limit: int = 5) -> List[FAQ]:
+        """Search FAQs by semantic query.
         
         Args:
             query: Search query string
+            limit: Maximum number of results (default: 5)
             
         Returns:
             List of matching FAQ objects
         """
-        faqs = self.get_all()
-        query_lower = query.lower()
-        results = []
+        if self._collection is None:
+            self.connect()
         
-        for faq in faqs:
-            if (query_lower in faq.question.lower() or 
-                query_lower in faq.answer.lower()):
-                results.append(faq)
+        assert self._collection is not None, "Collection not initialized"
         
-        return results
+        try:
+            logger.debug(f"Searching FAQs with query: {query}, limit: {limit}")
+            
+            results = self._collection.query.near_text(
+                query,
+                limit=limit
+            ).objects
+            
+            faqs = [FAQ.from_dict(dict(obj.properties)) for obj in results]
+            logger.info(f"Found {len(faqs)} FAQs matching query")
+            return faqs
+        except Exception as e:
+            logger.error(f"Failed to search FAQs: {e}", exc_info=True)
+            return []
 
 
 class ProductRepository(BaseRepository):

@@ -104,6 +104,78 @@ def load_products_to_weaviate():
         print("Disconnected from Weaviate")
 
 
+def load_faqs_to_weaviate():
+    """Load FAQs from joblib file into Weaviate."""
+    
+    print("\nConnecting to Weaviate...")
+    client = weaviate.connect_to_local(
+        port=8079,
+        grpc_port=50050
+    )
+    
+    try:
+        # Check if FAQs collection exists
+        try:
+            client.collections.delete("faqs")
+            print("Deleted existing 'faqs' collection")
+        except:
+            pass
+        
+        # Create FAQs collection
+        print("Creating 'faqs' collection...")
+        faqs_collection = client.collections.create(
+            name="faqs",
+            properties=[
+                Property(name="question", data_type=DataType.TEXT),
+                Property(name="answer", data_type=DataType.TEXT),
+                Property(name="type", data_type=DataType.TEXT),
+            ],
+            vectorizer_config=Configure.Vectorizer.none()
+        )
+        print("Collection created successfully")
+        
+        # Load FAQs data
+        data_path = Path(__file__).parent / "dataset" / "faq.joblib"
+        print(f"Loading FAQs from {data_path}...")
+        faqs_data = joblib.load(data_path)
+        
+        print(f"Found {len(faqs_data)} FAQs")
+        
+        # Import FAQs with embeddings
+        collection = client.collections.get("faqs")
+        
+        print("Importing FAQs...")
+        with collection.batch.dynamic() as batch_import:
+            for item in tqdm(faqs_data):
+                # Extract vector if exists
+                vector = item.pop('vector', None) if isinstance(item, dict) else None
+                
+                # Clean the data
+                properties = {
+                    'question': str(item.get('question', '')),
+                    'answer': str(item.get('answer', '')),
+                    'type': str(item.get('type', '')),
+                }
+                
+                if vector is not None:
+                    batch_import.add_object(
+                        properties=properties,
+                        vector=vector
+                    )
+                else:
+                    batch_import.add_object(properties=properties)
+        
+        print(f"✅ Successfully imported {len(faqs_data)} FAQs!")
+        
+        # Verify
+        result = collection.aggregate.over_all(total_count=True)
+        print(f"Total FAQs in Weaviate: {result.total_count}")
+        
+    finally:
+        client.close()
+        print("Disconnected from Weaviate")
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("NexusRAG Data Loader")
@@ -111,6 +183,7 @@ if __name__ == "__main__":
     
     try:
         load_products_to_weaviate()
+        load_faqs_to_weaviate()
         print("\n✅ Data loading completed successfully!")
         print("\nYou can now start the Flask app with: python main.py")
     except Exception as e:

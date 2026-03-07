@@ -70,10 +70,10 @@ class ChatbotService:
         logger.info("Setting up ChatbotService...")
         
         try:
-            # Load FAQ data
-            self.faq_repo.load_data()
+            # Connect to Weaviate for FAQs
+            self.faq_repo.connect()
             
-            # Connect to Weaviate
+            # Connect to Weaviate for Products
             self.product_repo.connect()
             
             self._initialized = True
@@ -156,6 +156,7 @@ class ChatbotService:
         """Cleanup resources."""
         logger.info("Cleaning up ChatbotService")
         try:
+            self.faq_repo.disconnect()
             self.product_repo.disconnect()
             logger.info("Cleanup completed successfully")
         except Exception as e:

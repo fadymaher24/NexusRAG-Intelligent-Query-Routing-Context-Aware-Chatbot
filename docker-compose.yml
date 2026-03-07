@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  weaviate:
+    image: semitechnologies/weaviate:1.23.0
+    ports:
+      - '8079:8080'
+      - '50050:50051'
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'text2vec-transformers'
+      ENABLE_MODULES: 'text2vec-transformers'
+      TRANSFORMERS_INFERENCE_API: 'http://t2v-transformers:8080'
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+
+  t2v-transformers:
+    image: semitechnologies/transformers-inference:sentence-transformers-msmarco-distilbert-base-tas-b
+    environment:
+      ENABLE_CUDA: '0'
+
+  nexusrag:
+    build: .
+    ports:
+      - '5001:5001'
+    environment:
+      WEAVIATE_HOST: weaviate
+      WEAVIATE_PORT: 8080
+      WEAVIATE_GRPC_PORT: 50051
+    depends_on:
+      - weaviate
+    volumes:
+      - ./dataset:/app/dataset
+      - ./logs:/app/logs
+
+volumes:
+  weaviate_data:

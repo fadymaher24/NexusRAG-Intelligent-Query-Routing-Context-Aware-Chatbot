@@ -1,0 +1,22 @@
+# NexusRAG - Intelligent Query Routing Context-Aware Chatbot
+
+# Core web framework
+Flask>=3.0.0
+flask-cors>=4.0.0
+
+# Vector database
+weaviate-client>=4.4.0
+
+# Data handling
+joblib>=1.3.0
+
+# HTTP client
+requests>=2.31.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Note: The following are only needed if using the legacy src/utils.py functions
+# together>=0.2.7
+# sentence-transformers>=2.2.0
+# openai>=1.3.0

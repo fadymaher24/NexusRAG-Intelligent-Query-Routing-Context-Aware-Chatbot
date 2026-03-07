@@ -6,6 +6,7 @@ Implements Singleton pattern for configuration management.
 import os
 from pathlib import Path
 from typing import Dict, Any
+from dotenv import load_dotenv
 
 
 class Config:
@@ -28,6 +29,9 @@ class Config:
     
     def _load_config(self):
         """Load configuration from environment variables or defaults."""
+        # Load environment variables from .env file
+        load_dotenv()
+        
         # Project paths
         self.BASE_DIR = Path(__file__).parent.parent
         self.DATA_DIR = self.BASE_DIR / "dataset"

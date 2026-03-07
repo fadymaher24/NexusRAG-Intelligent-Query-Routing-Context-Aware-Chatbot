@@ -70,6 +70,9 @@ class LLMClient:
             
             if self.api_key:
                 headers["Authorization"] = f"Bearer {self.api_key}"
+                logger.debug(f"Using API key: {self.api_key[:15]}...{self.api_key[-4:]}")
+            else:
+                logger.warning("No API key configured")
             
             # Make API request
             if self.api_base_url:

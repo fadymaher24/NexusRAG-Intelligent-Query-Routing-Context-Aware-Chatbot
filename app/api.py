@@ -11,6 +11,7 @@ import os
 from app.services import ServiceFactory
 from app.config import config
 from app.utils.logger import logger
+from app.utils.tracing import TraceContext, trace_operation
 
 
 def create_app() -> Flask:
@@ -71,44 +72,59 @@ def create_app() -> Flask:
         Returns:
             JSON with response
         """
+        # Generate trace ID for this request
+        trace_id = TraceContext.generate_trace_id()
+        TraceContext.set_trace_id(trace_id)
+        
         try:
-            # Get query from request
-            data = request.get_json()
-            
-            if not data or 'query' not in data:
-                return jsonify({
-                    'error': 'Missing query parameter'
-                }), 400
-            
-            query = data['query']
-            
-            if not query or not query.strip():
-                return jsonify({
-                    'error': 'Empty query'
-                }), 400
-            
-            logger.info(f"Received query: {query}")
-            
-            # Get service instance
-            service = get_service()
-            if service is None:
-                return jsonify({
-                    'success': False,
-                    'error': 'Service not initialized'
-                }), 500
-            
-            # Process query
-            response = service.process_query(query)
-            
-            # Return response
-            return jsonify(response.to_dict()), 200
+            with trace_operation("handle_query_request"):
+                # Get query from request
+                data = request.get_json()
+                
+                if not data or 'query' not in data:
+                    return jsonify({
+                        'error': 'Missing query parameter',
+                        'trace_id': trace_id
+                    }), 400
+                
+                query = data['query']
+                
+                if not query or not query.strip():
+                    return jsonify({
+                        'error': 'Empty query',
+                        'trace_id': trace_id
+                    }), 400
+                
+                logger.info(f"[trace_id={trace_id}] Received query: {query}")
+                
+                # Get service instance
+                service = get_service()
+                if service is None:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Service not initialized',
+                        'trace_id': trace_id
+                    }), 500
+                
+                # Process query
+                response = service.process_query(query)
+                
+                # Add trace ID to response
+                response_dict = response.to_dict()
+                response_dict['trace_id'] = trace_id
+                
+                # Return response
+                return jsonify(response_dict), 200
             
         except Exception as e:
-            logger.error(f"Error handling query: {e}", exc_info=True)
+            logger.error(f"[trace_id={trace_id}] Error handling query: {e}", exc_info=True)
             return jsonify({
                 'error': 'Internal server error',
-                'details': str(e)
+                'details': str(e),
+                'trace_id': trace_id
             }), 500
+        finally:
+            TraceContext.clear_trace_id()
     
     @app.route('/api/chat', methods=['POST'])
     def chat():

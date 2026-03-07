@@ -16,6 +16,9 @@ requests>=2.31.0
 # Environment variables
 python-dotenv>=1.0.0
 
+# Progress bars and visual feedback
+tqdm>=4.65.0
+
 # Note: The following are only needed if using the legacy src/utils.py functions
 # together>=0.2.7
 # sentence-transformers>=2.2.0

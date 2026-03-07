@@ -15,6 +15,7 @@ from app.strategies import (
 )
 from app.config import config
 from app.utils.logger import logger
+from app.utils.tracing import trace_operation, log_with_trace
 
 
 class ChatbotService:
@@ -70,14 +71,17 @@ class ChatbotService:
         logger.info("Setting up ChatbotService...")
         
         try:
-            # Connect to Weaviate for FAQs
-            self.faq_repo.connect()
-            
-            # Connect to Weaviate for Products
-            self.product_repo.connect()
-            
-            self._initialized = True
-            logger.info("ChatbotService setup completed successfully")
+            with trace_operation("service_setup"):
+                # Connect to Weaviate for FAQs
+                with trace_operation("connect_faq_repository"):
+                    self.faq_repo.connect()
+                
+                # Connect to Weaviate for Products
+                with trace_operation("connect_product_repository"):
+                    self.product_repo.connect()
+                
+                self._initialized = True
+                logger.info("ChatbotService setup completed successfully")
         except Exception as e:
             logger.error(f"Failed to setup ChatbotService: {e}", exc_info=True)
             raise
@@ -91,57 +95,63 @@ class ChatbotService:
         Returns:
             QueryResponse object with results
         """
-        if not self._initialized:
-            self.setup()
-        
-        logger.info(f"Processing query: {query}")
+        if _with_trace("info", f"Processing query: {query}")
         
         try:
-            # Route query to appropriate strategy
-            route_result = self.router.route(query)
-            
-            # Extract parameters
-            prompt = route_result['prompt']
-            temperature = route_result.get('temperature', config.TEMPERATURE_DEFAULT)
-            top_p = route_result.get('top_p', config.TOP_P_DEFAULT)
-            max_tokens = route_result.get('max_tokens', config.MAX_TOKENS_DEFAULT)
-            query_type = route_result.get('query_type', QueryType.UNKNOWN)
-            task_nature = route_result.get('task_nature')
-            products = route_result.get('products')
-            
-            # Generate response
-            llm_response = self.llm_client.generate(
-                prompt=prompt,
-                temperature=temperature,
-                top_p=top_p,
-                max_tokens=max_tokens
-            )
-            
-            response_text = llm_response.get('content', '')
-            
-            # Check for errors
-            if 'error' in llm_response:
-                logger.error(f"LLM error: {llm_response['error']}")
+            with trace_operation("process_query", query_length=len(query)):
+                # Route query to appropriate strategy
+                with trace_operation("route_query"):
+                    route_result = self.router.route(query)
+                
+                # Extract parameters
+                prompt = route_result['prompt']
+                temperature = route_result.get('temperature', config.TEMPERATURE_DEFAULT)
+                top_p = route_result.get('top_p', config.TOP_P_DEFAULT)
+                max_tokens = route_result.get('max_tokens', config.MAX_TOKENS_DEFAULT)
+                query_type = route_result.get('query_type', QueryType.UNKNOWN)
+                task_nature = route_result.get('task_nature')
+                products = route_result.get('products')
+                
+                # Generate response
+                with trace_operation("llm_generate", 
+                                   temperature=temperature, 
+                                   max_tokens=max_tokens):
+                    llm_response = self.llm_client.generate(
+                        prompt=prompt,
+                        temperature=temperature,
+                        top_p=top_p,
+                        max_tokens=max_tokens
+                    )
+                
+                response_text = llm_response.get('content', '')
+                
+                # Check for errors
+                if 'error' in llm_response:
+                    log_with_trace("error", f"LLM error: {llm_response['error']}")
+                    return QueryResponse(
+                        success=False,
+                        query_type=query_type,
+                        task_nature=task_nature,
+                        error=llm_response['error']
+                    )
+                
+                # Create successful response
+                log_with_trace("info", "Query processed successfully")
                 return QueryResponse(
-                    success=False,
+                    success=True,
                     query_type=query_type,
                     task_nature=task_nature,
-                    error=llm_response['error']
+                    response=response_text,
+                    products=products,
+                    metadata={
+                        'temperature': temperature,
+                        'top_p': top_p,
+                        'max_tokens': max_tokens
+                    }
                 )
             
-            # Create successful response
-            logger.info("Query processed successfully")
-            return QueryResponse(
-                success=True,
-                query_type=query_type,
-                task_nature=task_nature,
-                response=response_text,
-                products=products,
-                metadata={
-                    'temperature': temperature,
-                    'top_p': top_p,
-                    'max_tokens': max_tokens
-                }
+        except Exception as e:
+            log_with_trace("error", f"Error processing query: {e}")
             )
             
         except Exception as e:

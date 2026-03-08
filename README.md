@@ -18,7 +18,7 @@ A RAG (Retrieval-Augmented Generation) chatbot for **Fashion Forward Hub**, an o
 
 ## Architecture
 
-```
+```text
 app/
 ├── api.py            # Flask endpoints + request tracing
 ├── config.py         # Singleton config (env-based)
@@ -35,7 +35,7 @@ app/
 
 ### Query Pipeline
 
-```
+```text
 POST /api/chat
       │
       ▼
@@ -57,14 +57,14 @@ QueryRouter
 
 ## Stack
 
-| Component   | Technology                           |
-|-------------|--------------------------------------|
-| LLM         | Ollama (`llama3.2:3b`) — local, free |
-| Embeddings  | Ollama (`nomic-embed-text`)          |
-| Vector DB   | Weaviate 1.28.1 (Docker)            |
-| API         | Flask 3.x                            |
-| Vectorizer  | `text2vec-ollama` (Weaviate module)  |
-| Python      | 3.8+                                 |
+| Component  | Technology                           |
+| ---------- | ------------------------------------ |
+| LLM        | Ollama (`llama3.2:3b`) — local, free |
+| Embeddings | Ollama (`nomic-embed-text`)          |
+| Vector DB  | Weaviate 1.28.1 (Docker)             |
+| API        | Flask 3.x                            |
+| Vectorizer | `text2vec-ollama` (Weaviate module)  |
+| Python     | 3.8+                                 |
 
 ---
 
@@ -73,10 +73,12 @@ QueryRouter
 ### Weaviate Collections
 
 **FAQs** (25 items, vectorized with `nomic-embed-text`)
+
 - Properties: `question`, `answer`, `type`
 - Categories: returns & exchanges, shipping & delivery, product info, payment, general
 
 **Products** (44,424 items)
+
 - Properties: `productDisplayName`, `price`, `brandName`, `ageGroup`, `gender`, `baseColour`, `season`, `usage`, `productId`, `masterCategory`, `subCategory`, `articleType`
 
 ---
@@ -166,7 +168,7 @@ GET /health
 ```
 
 ```json
-{"status": "healthy", "service": "NexusRAG Chatbot"}
+{ "status": "healthy", "service": "NexusRAG Chatbot" }
 ```
 
 ### Chat (simple)
@@ -210,17 +212,20 @@ Content-Type: application/json
 ## Example Queries
 
 **FAQ queries** (semantic search over 25 FAQs):
+
 - "What is your return policy?"
 - "How long does delivery take?"
 - "Do you offer international shipping?"
 - "How can I contact customer support?"
 
 **Product queries — technical** (filtered Weaviate search):
+
 - "Show me blue T-shirts under $50"
 - "What formal dresses do you have for women?"
 - "Do you have red sneakers?"
 
 **Product queries — creative** (higher temperature, styled answers):
+
 - "Create a look for a beach party"
 - "Suggest an outfit for a job interview"
 - "Help me dress for a winter wedding"
@@ -229,16 +234,16 @@ Content-Type: application/json
 
 ## Configuration Reference
 
-| Variable | Default | Description |
-|---|---|---|
-| `LLM_MODEL` | `meta-llama/Llama-3.2-3B-Instruct-Turbo` | Model name |
-| `LLM_API_BASE_URL` | _(empty)_ | API base URL (e.g. `http://localhost:11434/v1`) |
-| `LLM_API_KEY` | _(empty)_ | API key (leave empty for Ollama) |
-| `WEAVIATE_HOST` | `localhost` | Weaviate host |
-| `WEAVIATE_PORT` | `8079` | Weaviate HTTP port |
-| `WEAVIATE_GRPC_PORT` | `50050` | Weaviate gRPC port |
-| `FLASK_PORT` | `5001` | Flask server port |
-| `LOG_LEVEL` | `INFO` | Logging level |
+| Variable             | Default                                  | Description                                     |
+| -------------------- | ---------------------------------------- | ----------------------------------------------- |
+| `LLM_MODEL`          | `meta-llama/Llama-3.2-3B-Instruct-Turbo` | Model name                                      |
+| `LLM_API_BASE_URL`   | _(empty)_                                | API base URL (e.g. `http://localhost:11434/v1`) |
+| `LLM_API_KEY`        | _(empty)_                                | API key (leave empty for Ollama)                |
+| `WEAVIATE_HOST`      | `localhost`                              | Weaviate host                                   |
+| `WEAVIATE_PORT`      | `8079`                                   | Weaviate HTTP port                              |
+| `WEAVIATE_GRPC_PORT` | `50050`                                  | Weaviate gRPC port                              |
+| `FLASK_PORT`         | `5001`                                   | Flask server port                               |
+| `LOG_LEVEL`          | `INFO`                                   | Logging level                                   |
 
 ---
 
@@ -294,7 +299,7 @@ docker-compose down     # stop
 
 Each request gets a UUID trace ID. All spans are logged with durations:
 
-```
+```text
 [trace_id=abc-123] [handle_query_request] Starting
 [trace_id=abc-123] Query classified as: FAQ
 [trace_id=abc-123] Found 5 FAQs matching query

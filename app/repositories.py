@@ -34,7 +34,18 @@ class FAQRepository(BaseRepository):
         """
         self._client = weaviate_client
         self._collection = None
+        self._faqs: Optional[List[FAQ]] = None
         logger.info("Initializing FAQRepository")
+
+    def load_data(self, file_path: str = "dataset/faq.joblib") -> None:
+        """Load FAQ data from a joblib file.
+        
+        Args:
+            file_path: Path to the joblib file containing FAQ data.
+        """
+        data = joblib.load(file_path)
+        self._faqs = [FAQ.from_dict(item) for item in data]
+        logger.info(f"Loaded {len(self._faqs)} FAQs from {file_path}")
     
     def connect(self):
         """Connect to Weaviate and get FAQs collection."""
@@ -75,6 +86,9 @@ class FAQRepository(BaseRepository):
         Returns:
             List of FAQ objects
         """
+        if self._faqs is not None:
+            return self._faqs
+
         if self._collection is None:
             self.connect()
         

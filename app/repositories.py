@@ -65,6 +65,9 @@ class FAQRepository(BaseRepository):
                 logger.info("Disconnected from Weaviate")
             except Exception as e:
                 logger.error(f"Error disconnecting from Weaviate: {e}", exc_info=True)
+            finally:
+                self._client = None
+                self._collection = None
     
     def get_all(self) -> List[FAQ]:
         """Get all FAQs.
@@ -168,6 +171,9 @@ class ProductRepository(BaseRepository):
                 logger.info("Disconnected from Weaviate")
             except Exception as e:
                 logger.error(f"Error disconnecting from Weaviate: {e}", exc_info=True)
+            finally:
+                self._client = None
+                self._collection = None
     
     def get_all(self) -> List[Product]:
         """Get all products.

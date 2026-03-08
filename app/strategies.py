@@ -35,32 +35,32 @@ class QueryClassifier:
             QueryType enum value
         """
         prompt = f"""
-Label the following instruction as an FAQ-related query or a product-related query.
+Classify the following instruction as either FAQ or Product. Output only the single word FAQ or Product.
 
-Product-related queries are specific to product information or require using product details to answer.
-Products are clothes from a store.
-An FAQ question addresses common inquiries such as policies, refunds, shipping, or general help.
+Product: queries about specific clothing items, prices, colors, sizes, availability.
+FAQ: queries about policies, refunds, returns, shipping, payments, store information.
 
 Examples:
-Is there a refund for incorrectly bought clothes? Label: FAQ
-Tell me about the cheapest T-shirts that you have. Label: Product
-Do you have blue T-shirts under 100 dollars? Label: Product
-I bought a T-shirt and I didn't like it. How can I get a refund? Label: FAQ
-How long does delivery usually take? Label: FAQ
-
-Return only one of the two labels: FAQ or Product.
+Is there a refund for incorrectly bought clothes? FAQ
+Tell me about the cheapest T-shirts that you have. Product
+Do you have blue T-shirts under 100 dollars? Product
+I bought a T-shirt and I didn't like it. How can I get a refund? FAQ
+How long does delivery usually take? FAQ
+What is your return policy? FAQ
+Show me red dresses under $50. Product
 
 Instruction: {query}
-Label:
-"""
+Classification:"""
         
         try:
             label = self.llm_client.generate_single_token(prompt, temperature=0.0)
-            logger.info(f"Query classified as: {label}")
+            # Parse robustly - model may output 'FAQ', 'Product', or with leading space
+            label_upper = label.strip().upper()
+            logger.info(f"Query classified as: {label.strip()}")
             
-            if label == "FAQ":
+            if "FAQ" in label_upper:
                 return QueryType.FAQ
-            elif label == "Product":
+            elif "PRODUCT" in label_upper:
                 return QueryType.PRODUCT
             else:
                 logger.warning(f"Unexpected classification label: {label}")
@@ -154,8 +154,9 @@ class FAQQueryStrategy(QueryStrategy):
         """
         logger.info(f"Handling FAQ query: {query}")
         
-        # Get FAQ layout
-        faq_layout = self.faq_repo.get_faq_layout()
+        # Semantic search for most relevant FAQs
+        relevant_faqs = self.faq_repo.search(query, limit=5)
+        faq_layout = "\n".join([faq.to_string() for faq in relevant_faqs])
         
         # Create prompt
         prompt = f"""

@@ -53,7 +53,10 @@ def load_products_to_weaviate():
                 Property(name="subCategory", data_type=DataType.TEXT),
                 Property(name="articleType", data_type=DataType.TEXT),
             ],
-            vectorizer_config=Configure.Vectorizer.none()
+            vectorizer_config=Configure.Vectorizer.text2vec_ollama(
+                api_endpoint="http://host.docker.internal:11434",
+                model="nomic-embed-text"
+            )
         )
         print("Collection created successfully")
         
@@ -149,7 +152,10 @@ def load_faqs_to_weaviate():
                 Property(name="answer", data_type=DataType.TEXT),
                 Property(name="type", data_type=DataType.TEXT),
             ],
-            vectorizer_config=Configure.Vectorizer.none()
+            vectorizer_config=Configure.Vectorizer.text2vec_ollama(
+                api_endpoint="http://host.docker.internal:11434",
+                model="nomic-embed-text"
+            )
         )
         print("Collection created successfully")
         

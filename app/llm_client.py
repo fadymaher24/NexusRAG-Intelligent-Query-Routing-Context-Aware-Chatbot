@@ -117,7 +117,7 @@ class LLMClient:
         response = self.generate(
             prompt=prompt,
             temperature=temperature,
-            max_tokens=1
+            max_tokens=5
         )
         return response.get('content', '').strip()
     

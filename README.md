@@ -1,4 +1,4 @@
-# NexusRAG — Intelligent Query Routing Context-Aware Chatbot
+# RAG — Intelligent Query Routing Context-Aware Chatbot
 
 A RAG (Retrieval-Augmented Generation) chatbot for **Fashion Forward Hub**, an online clothing store. The system intelligently routes user queries, performs semantic search over a vector database, and generates context-aware responses using a local LLM via Ollama.
 
